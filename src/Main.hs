@@ -1,10 +1,12 @@
+{-# LANGUAGE ExtendedDefaultRules #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# OPTIONS_GHC -Wno-type-defaults #-}
 
 module Main where
 
 import Main.Utf8 qualified as Utf8
 import Shh
-import Shh.Nix
+import Shh.Nix (loadExeNix)
 import System.Directory
 import System.FilePath
 import System.IO.Temp
@@ -13,25 +15,20 @@ import System.IO.Temp
 $(loadExeNix "cabal" "cabal")
 $(loadExeNix "op" "op")
 
-{- |
- Main entry point.
-
- `just run` will invoke this function.
--}
 main :: IO ()
 main = do
-  -- For withUtf8, see https://serokell.io/blog/haskell-with-utf8
   Utf8.withUtf8 $ do
     withSystemTempDirectory "hackage-publish" $ \tmpDir -> do
       putTextLn $ "Using temporary directory: " <> show tmpDir
 
       -- Run cabal sdist
       putTextLn "Creating source distribution..."
-      cabal ("sdist" :: String) ("-o" :: String) tmpDir
+      cabal "sdist" "-o" tmpDir
 
       -- Get password from 1password
       putTextLn "Retrieving password from 1password..."
-      password <- op ("read" :: String) ("op://Private/Hackage/password" :: String) |> captureTrim
+      void exitFailure -- TODO:
+      password <- op "read" "op://Private/Hackage/password" |> captureTrim
 
       -- Find the tarball file
       files <- listDirectory tmpDir
@@ -41,6 +38,6 @@ main = do
         Just tarball -> do
           -- Upload to hackage
           putTextLn "Publishing to Hackage..."
-          cabal ("upload" :: String) ("--publish" :: String) ("-u" :: String) ("sridca" :: String) ("-p" :: String) (toString (decodeUtf8 password :: Text)) (tmpDir </> tarball)
+          cabal "upload" "--publish" "-u" "sridca" "-p" (decodeUtf8 @String password) (tmpDir </> tarball)
 
       putTextLn "Successfully published to Hackage!"

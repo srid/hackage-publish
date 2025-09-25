@@ -6,7 +6,7 @@
     inputs.haskell-flake.flakeModule
   ];
   perSystem = { self', lib, config, pkgs, ... }: {
-    haskellProjects.default = {
+    haskellProjects.default = { config, ... }: {
       projectRoot = builtins.toString (lib.fileset.toSource {
         inherit root;
         fileset = lib.fileset.unions [
@@ -28,6 +28,13 @@
           stan = true;
         };
       };
+
+      devShell.tools = _:
+        # Bring all the `extraBuildDepends` (above) into the devShell, so
+        # cabal/ghcid can resolve `staticWhich`.
+        lib.flip lib.concatMapAttrs config.outputs.packages (_: v:
+          lib.listToAttrs (lib.map (p: lib.nameValuePair p.name p) v.package.getCabalDeps.buildDepends)
+        );
 
       # What should haskell-flake add to flake outputs?
       autoWire = [ "packages" "apps" "checks" ]; # Wire all but the devShell

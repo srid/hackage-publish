@@ -1,9 +1,7 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 module Shh.Nix (loadExeNix) where
 
 import Language.Haskell.TH
-import Shh (Cmd)
+import Shh.Internal (rawExe)
 import System.Which (staticWhichNix)
 
 -- Template Haskell function that combines staticWhichNix with shh to create
@@ -12,18 +10,5 @@ loadExeNix :: String -> String -> Q [Dec]
 loadExeNix fnName exeName = do
   pathExp <- staticWhichNix exeName
   case pathExp of
-    LitE (StringL nixStorePath) -> do
-      let name = mkName fnName
-          impl =
-            valD
-              (varP name)
-              ( normalB
-                  [|
-                    withFrozenCallStack $ exe ($(litE (stringL nixStorePath)) :: String)
-                    |]
-              )
-              []
-          typ = SigD name (ConT ''Cmd)
-      i <- impl
-      return [typ, i]
+    LitE (StringL nixStorePath) -> rawExe fnName nixStorePath
     _ -> fail $ "staticWhichNix didn't return a string literal for " ++ exeName
