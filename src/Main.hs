@@ -19,25 +19,33 @@ main :: IO ()
 main = do
   Utf8.withUtf8 $ do
     withSystemTempDirectory "hackage-publish" $ \tmpDir -> do
-      putTextLn $ "Using temporary directory: " <> show tmpDir
-
       -- Run cabal sdist
-      putTextLn "Creating source distribution..."
-      cabal "sdist" "-o" tmpDir
+      putTextLn "🌀 Creating source distribution..."
+      tarball <- cabalSdist tmpDir
 
       -- Get password from 1password
-      putTextLn "Retrieving password from 1password..."
-      void exitFailure -- TODO:
-      password <- op "read" "op://Private/Hackage/password" |> captureTrim
+      putTextLn "🌀 Retrieving password from 1password..."
+      username <- opRead "Private" "Hackage" "username"
+      password <- opRead "Private" "Hackage" "password"
 
-      -- Find the tarball file
-      files <- listDirectory tmpDir
-      let maybeTarball = viaNonEmpty head $ filter (\f -> takeExtension f == ".gz") files
-      case maybeTarball of
-        Nothing -> error "No .gz tarball found in sdist output"
-        Just tarball -> do
-          -- Upload to hackage
-          putTextLn "Publishing to Hackage..."
-          cabal "upload" "--publish" "-u" "sridca" "-p" (decodeUtf8 @String password) (tmpDir </> tarball)
+      -- Upload to hackage
+      putTextLn $ "🌀 Publishing '" <> toText (takeFileName tarball) <> "' to Hackage as " <> toText username <> "..."
+      void exitFailure
+      cabal "upload" "--publish" "-u" username "-p" password (tmpDir </> tarball)
 
-      putTextLn "Successfully published to Hackage!"
+      putTextLn "✅ Successfully published to Hackage!"
+
+opRead :: String -> String -> String -> IO String
+opRead vault item field = do
+  let uri = "op://" <> vault <> "/" <> item <> "/" <> field
+  result <- op "read" uri |> captureTrim
+  pure $ decodeUtf8 @String result
+
+cabalSdist :: (HasCallStack) => FilePath -> IO FilePath
+cabalSdist dir = do
+  cabal "sdist" "-o" dir
+  files <- listDirectory dir
+  let maybeTarball = viaNonEmpty head $ filter (\f -> takeExtension f == ".gz") files
+  case maybeTarball of
+    Nothing -> error "No .gz tarball found in sdist output"
+    Just tarball -> pure $ dir </> tarball
