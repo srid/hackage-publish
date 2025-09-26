@@ -4,6 +4,7 @@
 
 module Main where
 
+import Data.List (isSuffixOf)
 import Main.Utf8 qualified as Utf8
 import Shh
 import Shh.Nix (loadExeNix)
@@ -21,7 +22,10 @@ main = do
     withSystemTempDirectory "hackage-publish" $ \tmpDir -> do
       -- Run cabal sdist
       putTextLn "🌀 Creating source distribution..."
-      tarball <- cabalSdist tmpDir
+      src <- cabalSdist tmpDir
+      -- Run cabal haddock
+      putTextLn "🌀 Creating haddock documentation..."
+      haddock <- cabalHaddock tmpDir
 
       -- Get password from 1password
       putTextLn "🌀 Retrieving password from 1password..."
@@ -29,8 +33,10 @@ main = do
       password <- opRead "Private" "Hackage" "password"
 
       -- Upload to hackage
-      putTextLn $ "🌀 Publishing '" <> toText (takeFileName tarball) <> "' to Hackage as " <> toText username <> "..."
-      cabal "upload" "--publish" "-u" username "-p" password (tmpDir </> tarball)
+      putTextLn $ "🌀 Publishing sdist '" <> toText (takeFileName src) <> "' to Hackage as " <> toText username <> "..."
+      cabal "upload" "--publish" "-u" username "-p" password (tmpDir </> src)
+      putTextLn $ "🌀 Publishing haddock '" <> toText (takeFileName haddock) <> "' to Hackage as " <> toText username <> "..."
+      cabal "upload" "--publish" "-u" username "-p" password "-d" (tmpDir </> haddock)
 
       putTextLn "✅ Successfully published to Hackage!"
 
@@ -43,8 +49,17 @@ opRead vault item field = do
 cabalSdist :: (HasCallStack) => FilePath -> IO FilePath
 cabalSdist dir = do
   cabal "sdist" "-o" dir
+  getFileMatching dir (\f -> takeExtension f == ".gz")
+
+cabalHaddock :: (HasCallStack) => FilePath -> IO FilePath
+cabalHaddock dir = do
+  cabal "haddock" "--builddir" dir "--haddock-for-hackage"
+  getFileMatching dir ("-docs.tar.gz" `isSuffixOf`)
+
+getFileMatching :: FilePath -> (FilePath -> Bool) -> IO FilePath
+getFileMatching dir predicate = do
   files <- listDirectory dir
-  let maybeTarball = viaNonEmpty head $ filter (\f -> takeExtension f == ".gz") files
-  case maybeTarball of
-    Nothing -> error "No .gz tarball found in sdist output"
-    Just tarball -> pure $ dir </> tarball
+  let maybeFile = viaNonEmpty head $ filter predicate files
+  case maybeFile of
+    Nothing -> error $ "No matching file found in " <> toText dir
+    Just file -> pure $ dir </> file
