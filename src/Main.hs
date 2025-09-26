@@ -49,17 +49,17 @@ opRead vault item field = do
 cabalSdist :: (HasCallStack) => FilePath -> IO FilePath
 cabalSdist dir = do
   cabal "sdist" "-o" dir
-  files <- listDirectory dir
-  let maybeTarball = viaNonEmpty head $ filter (\f -> takeExtension f == ".gz") files
-  case maybeTarball of
-    Nothing -> error "No .gz tarball found in sdist output"
-    Just tarball -> pure $ dir </> tarball
+  getFileMatching dir (\f -> takeExtension f == ".gz")
 
 cabalHaddock :: (HasCallStack) => FilePath -> IO FilePath
 cabalHaddock dir = do
   cabal "haddock" "--builddir" dir "--haddock-for-hackage"
+  getFileMatching dir ("-docs.tar.gz" `isSuffixOf`)
+
+getFileMatching :: FilePath -> (FilePath -> Bool) -> IO FilePath
+getFileMatching dir predicate = do
   files <- listDirectory dir
-  let maybeHaddock = viaNonEmpty head $ filter ("-docs.tar.gz" `isSuffixOf`) files
-  case maybeHaddock of
-    Nothing -> error "No doc .tar.gz found in haddock output"
-    Just haddock -> pure $ dir </> haddock
+  let maybeFile = viaNonEmpty head $ filter predicate files
+  case maybeFile of
+    Nothing -> error $ "No matching file found in " <> toText dir
+    Just file -> pure $ dir </> file
