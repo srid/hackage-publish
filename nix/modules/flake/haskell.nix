@@ -6,12 +6,7 @@
     inputs.haskell-flake.flakeModule
   ];
   perSystem = { self', lib, config, pkgs, ... }: {
-    # Our only Haskell project. You can have multiple projects, but this template
-    # has only one.
-    # See https://github.com/srid/haskell-flake/blob/master/example/flake.nix
-    haskellProjects.default = {
-      # To avoid unnecessary rebuilds, we filter projectRoot:
-      # https://community.flake.parts/haskell-flake/local#rebuild
+    haskellProjects.default = { config, ... }: {
       projectRoot = builtins.toString (lib.fileset.toSource {
         inherit root;
         fileset = lib.fileset.unions [
@@ -22,31 +17,24 @@
         ];
       });
 
-      # The base package set (this value is the default)
-      # basePackages = pkgs.haskellPackages;
-
-      # Packages to add on top of `basePackages`
-      packages = {
-        # Add source or Hackage overrides here
-        # (Local packages are added automatically)
-        /*
-        aeson.source = "1.5.0.0" # Hackage version
-        shower.source = inputs.shower; # Flake input
-        */
-      };
-
       # Add your package overrides here
       settings = {
         hackage-publish = {
+          extraBuildDepends = [
+            pkgs.cabal-install
+            pkgs.coreutils
+            pkgs._1password-cli
+          ];
           stan = true;
-          # haddock = false;
         };
-        /*
-        aeson = {
-          check = false;
-        };
-        */
       };
+
+      devShell.tools = _:
+        # Bring all the `extraBuildDepends` (above) into the devShell, so
+        # cabal/ghcid can resolve `staticWhich`.
+        lib.flip lib.concatMapAttrs config.outputs.packages (_: v:
+          lib.listToAttrs (lib.map (p: lib.nameValuePair p.name p) v.package.getCabalDeps.buildDepends)
+        );
 
       # What should haskell-flake add to flake outputs?
       autoWire = [ "packages" "apps" "checks" ]; # Wire all but the devShell
