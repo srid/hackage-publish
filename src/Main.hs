@@ -30,7 +30,6 @@ main = do
 
       -- Upload to hackage
       putTextLn $ "🌀 Publishing '" <> toText (takeFileName tarball) <> "' to Hackage as " <> toText username <> "..."
-      void exitFailure
       cabal "upload" "--publish" "-u" username "-p" password (tmpDir </> tarball)
 
       putTextLn "✅ Successfully published to Hackage!"
