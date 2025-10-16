@@ -2,6 +2,5 @@
 \ctx pipeline ->
   pipeline
     { signoff.enable = True
-    , cachix.enable = False
-    , attic.enable = False
+    , cache.enable = False
     }
