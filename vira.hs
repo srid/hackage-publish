@@ -2,5 +2,4 @@
 \ctx pipeline ->
   pipeline
     { signoff.enable = True
-    , cache.enable = False
     }
