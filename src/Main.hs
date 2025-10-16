@@ -40,10 +40,21 @@ main = do
 
       putTextLn "✅ Successfully published to Hackage!"
 
+-- | Get the 1Password CLI binary to use at runtime.
+-- Prefers /usr/bin/op if it exists, as the Nix package (pkgs._1password-cli)
+-- may not always work correctly on non-NixOS systems.
+opBin :: IO (String -> String -> Proc ())
+opBin = do
+  usrBinOpExists <- doesFileExist "/usr/bin/op"
+  pure $ if usrBinOpExists
+    then exe "/usr/bin/op"
+    else op
+
 opRead :: String -> String -> String -> IO String
 opRead vault item field = do
   let uri = "op://" <> vault <> "/" <> item <> "/" <> field
-  result <- op "read" uri |> captureTrim
+  opCmd <- opBin
+  result <- opCmd "read" uri |> captureTrim
   pure $ decodeUtf8 @String result
 
 cabalSdist :: (HasCallStack) => FilePath -> IO FilePath
