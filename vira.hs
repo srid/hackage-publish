@@ -1,5 +1,13 @@
 -- Pipeline configuration for Vira <https://vira.nixos.asia/>
+
 \ctx pipeline ->
+  let
+    isMain = ctx.branch == "master"
+  in
   pipeline
-    { signoff.enable = True
+    { build.systems = 
+        [ "x86_64-linux"
+        , "aarch64-darwin"
+        ]
+    , signoff.enable = True
     }
