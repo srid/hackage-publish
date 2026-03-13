@@ -29,8 +29,8 @@ main = do
 
       -- Get password from 1password
       putTextLn "🌀 Retrieving password from 1password..."
-      username <- opRead "Private" "Hackage" "username"
-      password <- opRead "Private" "Hackage" "password"
+      username <- opRead "Personal" "Hackage" "username"
+      password <- opRead "Personal" "Hackage" "password"
 
       -- Upload to hackage
       putTextLn $ "🌀 Publishing sdist '" <> toText (takeFileName src) <> "' to Hackage as " <> toText username <> "..."
